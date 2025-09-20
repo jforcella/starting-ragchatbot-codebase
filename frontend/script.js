@@ -5,7 +5,7 @@ const API_URL = '/api';
 let currentSessionId = null;
 
 // DOM elements
-let chatMessages, chatInput, sendButton, totalCourses, courseTitles;
+let chatMessages, chatInput, sendButton, totalCourses, courseTitles, courseSelector, newChatButton;
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
@@ -15,6 +15,8 @@ document.addEventListener('DOMContentLoaded', () => {
     sendButton = document.getElementById('sendButton');
     totalCourses = document.getElementById('totalCourses');
     courseTitles = document.getElementById('courseTitles');
+    courseSelector = document.getElementById('courseSelector');
+    newChatButton = document.getElementById('newChatButton');
     
     setupEventListeners();
     createNewSession();
@@ -28,8 +30,10 @@ function setupEventListeners() {
     chatInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') sendMessage();
     });
-    
-    
+
+    // New Chat button
+    newChatButton.addEventListener('click', startNewChat);
+
     // Suggested questions
     document.querySelectorAll('.suggested-item').forEach(button => {
         button.addEventListener('click', (e) => {
@@ -67,7 +71,8 @@ async function sendMessage() {
             },
             body: JSON.stringify({
                 query: query,
-                session_id: currentSessionId
+                session_id: currentSessionId,
+                course_filter: courseSelector ? courseSelector.value : null
             })
         });
 
@@ -161,6 +166,19 @@ function escapeHtml(text) {
 
 // Removed removeMessage function - no longer needed since we handle loading differently
 
+function startNewChat() {
+    // Clear current input if user is typing
+    chatInput.value = '';
+    chatInput.disabled = false;
+    sendButton.disabled = false;
+
+    // Create new session
+    createNewSession();
+
+    // Focus on the input field
+    chatInput.focus();
+}
+
 async function createNewSession() {
     currentSessionId = null;
     chatMessages.innerHTML = '';
@@ -191,6 +209,20 @@ async function loadCourseStats() {
             } else {
                 courseTitles.innerHTML = '<span class="no-courses">No courses available</span>';
             }
+        }
+
+        // Update course selector dropdown
+        if (courseSelector && data.course_titles && data.course_titles.length > 0) {
+            // Clear existing options except "All courses"
+            courseSelector.innerHTML = '<option value="">All courses</option>';
+
+            // Add course options
+            data.course_titles.forEach(title => {
+                const option = document.createElement('option');
+                option.value = title;
+                option.textContent = title;
+                courseSelector.appendChild(option);
+            });
         }
         
     } catch (error) {

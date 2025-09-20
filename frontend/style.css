@@ -247,21 +247,30 @@ header h1 {
 
 /* Source Links */
 .sources-content .source-link {
-    color: var(--primary-color);
+    color: #60a5fa;
     text-decoration: none;
     border-bottom: 1px solid transparent;
     transition: all 0.2s ease;
+    font-weight: 500;
+    padding: 0.125rem 0.25rem;
+    border-radius: 4px;
+    background-color: rgba(96, 165, 250, 0.1);
+    margin: 0.125rem 0.25rem 0.125rem 0;
+    display: inline-block;
+    line-height: 1.4;
 }
 
 .sources-content .source-link:hover {
-    color: var(--primary-hover);
-    border-bottom-color: var(--primary-hover);
+    color: #93c5fd;
+    background-color: rgba(96, 165, 250, 0.2);
+    border-bottom-color: #93c5fd;
+    transform: translateY(-1px);
 }
 
 .sources-content .source-link:focus {
-    outline: 2px solid var(--focus-ring);
+    outline: 2px solid rgba(96, 165, 250, 0.4);
     outline-offset: 2px;
-    border-radius: 2px;
+    border-radius: 4px;
 }
 
 /* Markdown formatting styles */
@@ -464,6 +473,36 @@ header h1 {
     margin: 0.5rem 0;
 }
 
+/* New Chat Button */
+.new-chat-button {
+    width: 100%;
+    padding: 0.5rem 0;
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: color 0.2s ease;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 0.5rem;
+    text-align: left;
+}
+
+.new-chat-button:focus {
+    outline: none;
+    color: var(--primary-color);
+}
+
+.new-chat-button:hover {
+    color: var(--primary-color);
+}
+
+.new-chat-button:active {
+    color: var(--primary-color);
+}
+
 /* Sidebar Headers */
 .stats-header,
 .suggested-header {
@@ -551,6 +590,29 @@ details[open] .suggested-header::before {
 .stat-item:last-child .stat-label {
     display: block;
     margin-bottom: 0.5rem;
+}
+
+/* Course selector */
+.course-selector {
+    width: 100%;
+    padding: 0.5rem;
+    background-color: var(--surface);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+    cursor: pointer;
+}
+
+.course-selector:hover {
+    background-color: var(--surface-hover);
+}
+
+.course-selector:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px var(--focus-ring);
 }
 
 /* Course titles collapsible */

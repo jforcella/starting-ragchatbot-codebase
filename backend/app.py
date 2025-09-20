@@ -39,6 +39,7 @@ class QueryRequest(BaseModel):
     """Request model for course queries"""
     query: str
     session_id: Optional[str] = None
+    course_filter: Optional[str] = None
 
 class QueryResponse(BaseModel):
     """Response model for course queries"""
@@ -63,7 +64,7 @@ async def query_documents(request: QueryRequest):
             session_id = rag_system.session_manager.create_session()
         
         # Process query using RAG system
-        answer, sources = rag_system.query(request.query, session_id)
+        answer, sources = rag_system.query(request.query, session_id, request.course_filter)
         
         return QueryResponse(
             answer=answer,
@@ -85,17 +86,129 @@ async def get_course_stats():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/api/health")
+async def health_check():
+    """Check system health and document loading status"""
+    try:
+        course_count = rag_system.vector_store.get_course_count()
+        course_titles = rag_system.vector_store.get_existing_course_titles()
+
+        # Test a simple search to verify system is working
+        test_result = rag_system.tool_manager.execute_tool("search_course_content", query="test")
+        search_working = not ("No relevant content found" in test_result and course_count > 0)
+
+        status = "healthy" if course_count > 0 else "no_data"
+        if course_count > 0 and not search_working:
+            status = "degraded"
+
+        return {
+            "status": status,
+            "courses_loaded": course_count,
+            "course_titles": course_titles[:10],  # Limit to first 10 for readability
+            "search_functional": search_working,
+            "message": _get_health_message(status, course_count),
+            "recommendations": _get_health_recommendations(status, course_count)
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "courses_loaded": 0,
+            "course_titles": [],
+            "search_functional": False,
+            "message": f"Health check failed: {str(e)}",
+            "recommendations": ["Check system logs", "Restart the application"]
+        }
+
+def _get_health_message(status: str, course_count: int) -> str:
+    """Generate appropriate health message"""
+    if status == "healthy":
+        return f"System is healthy with {course_count} courses loaded and search working"
+    elif status == "no_data":
+        return "System started but no courses loaded - this will cause 'query failed' errors"
+    elif status == "degraded":
+        return f"Courses loaded ({course_count}) but search not working properly"
+    else:
+        return "System error detected"
+
+def _get_health_recommendations(status: str, course_count: int) -> List[str]:
+    """Generate health recommendations"""
+    if status == "healthy":
+        return ["System is operating normally"]
+    elif status == "no_data":
+        return [
+            "Check if documents exist in /docs directory",
+            "Verify document loading during startup",
+            "Check file permissions on documents",
+            "Try restarting the application"
+        ]
+    elif status == "degraded":
+        return [
+            "Check ChromaDB connection",
+            "Verify vector store integrity",
+            "Check system resources",
+            "Review application logs"
+        ]
+    else:
+        return ["Check application logs", "Restart the application", "Verify system configuration"]
+
+@app.post("/api/reload-documents")
+async def reload_documents():
+    """Manually reload documents from the docs directory"""
+    try:
+        docs_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "docs")
+
+        if not os.path.exists(docs_path):
+            raise HTTPException(
+                status_code=404,
+                detail=f"Documents directory not found: {docs_path}"
+            )
+
+        # Clear existing data and reload
+        print("🔄 Manually reloading documents...")
+        courses, chunks = rag_system.add_course_folder(docs_path, clear_existing=True)
+
+        # Verify reload
+        total_courses = rag_system.vector_store.get_course_count()
+
+        return {
+            "success": True,
+            "message": f"Successfully reloaded {courses} courses with {chunks} chunks",
+            "courses_loaded": courses,
+            "chunks_created": chunks,
+            "total_courses_in_store": total_courses,
+            "timestamp": __import__("datetime").datetime.now().isoformat()
+        }
+
+    except Exception as e:
+        print(f"❌ Document reload failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to reload documents: {str(e)}")
+
 @app.on_event("startup")
 async def startup_event():
-    """Load initial documents on startup"""
-    docs_path = "../docs"
+    """Load initial documents on startup with better error handling"""
+    # Use absolute path resolution to avoid path issues
+    docs_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "docs")
+
     if os.path.exists(docs_path):
-        print("Loading initial documents...")
+        print(f"Loading documents from: {docs_path}")
         try:
             courses, chunks = rag_system.add_course_folder(docs_path, clear_existing=False)
-            print(f"Loaded {courses} courses with {chunks} chunks")
+            print(f"✅ Successfully loaded {courses} courses with {chunks} chunks")
+
+            # Verify loading worked
+            total_courses = rag_system.vector_store.get_course_count()
+            if total_courses == 0:
+                print("⚠️  Warning: No courses found in vector store after loading")
+            else:
+                print(f"✅ Vector store verified: {total_courses} courses available")
+
         except Exception as e:
-            print(f"Error loading documents: {e}")
+            print(f"❌ Error loading documents: {e}")
+            import traceback
+            traceback.print_exc()
+    else:
+        print(f"⚠️  Documents directory not found: {docs_path}")
+        print("   This will cause 'query failed' errors until documents are loaded")
 
 # Custom static file handler with no-cache headers for development
 from fastapi.staticfiles import StaticFiles
